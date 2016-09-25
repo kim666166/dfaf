@@ -1,0 +1,252 @@
+﻿<?php
+	// ----- Config start -----
+	
+	$steam_api_key = ""; // Get your API-key here: https://steamcommunity.com/dev/apikey
+	$music_enabled = true; // enable random music - true / false
+	$music_files = 10; // How many .ogg-files you have in the /music-folder? Music files have to be .ogg and named 1, 2, 3, etc.
+	$style = "blue"; // blue, pink, orange, green, red - the background file must have the name of the actual style!
+	$logo_path = "img/logos/blue_logo.png"; // default: img/logos/blue_logo.png
+	
+	// ------ Config end ------
+	
+	// Get steamID of connecting user
+	$communityid = $_GET["steamid"];
+	
+	// Load informations of user from Steam Web API
+	$url = file_get_contents("http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=".$steam_api_key."&steamids=".$communityid);
+	$steamprofile_data = json_decode($url, True);
+	
+	// Get userinformations
+	$username = $steamprofile_data["response"]["players"][0]["personaname"];
+	$avatar = $steamprofile_data["response"]["players"][0]["avatarfull"];
+	$country = $steamprofile_data["response"]["players"][0]["loccountrycode"];
+	
+	// Load steam country-file
+	$url = file_get_contents("inc/steam_countries.json");
+	
+	// Get country of user
+	$countries = json_decode($url, True);
+	$country = $countries[$country]["name"];
+	
+	// Convert steamID -> steamID32
+	$id = array('STEAM_0');
+	$id[1] = substr($communityid, -1, 1) % 2 == 0 ? 0 : 1;
+	$id[2] = bcsub($communityid, '76561197960265728');
+	$id[2] = bcsub($id[2], $id[1]);
+	list($id[2], ) = explode('.', bcdiv($id[2], 2), 2);
+	$steamID32 = implode(':', $id);
+	
+	// If user dont set a country, show only steamID32
+	if($country != Null){
+		$country = $country." - ".$steamID32;
+	} else {
+		$country = $steamID32;
+	}
+	
+	// Check if random music is enabled and pick an random song
+	if($music_enabled){
+		$music_file = rand(1, $music_files);
+	}
+	
+	// Styles, you can add more or your own, if you want
+	$styles = [
+		"blue" 		=> 	array("royalblue", "dodgerblue"),
+		"pink" 		=> 	array("darkorchid", "indigo"),
+		"orange" 	=> 	array("darkorange", "peru"),
+		"green" 	=> 	array("olive", "darkolivegreen"),
+		"red" 		=> 	array("darkred", "maroon"),
+		// "your color" => array("LINE COLOR", "PROGRESSBAR COLOR"),
+		// Colors: http://www.w3schools.com/cssref/css_colors.asp
+	];
+?>
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Cleany - A loadingscreen by Wolfbyte for Garry's Mod</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/animate.css">
+		
+		<style>
+			body {
+				background-image: url("img/backgrounds/<?php echo $style; ?>.jpg");
+			}
+			.header,
+			.left,
+			.center,
+			.center ol li,
+			.right,
+			.userinformations,
+			.serverinformations,
+			.staff_inside ul li,
+			.news,
+			#servername,
+			#gamemode,
+			#mapname,
+			#maxplayers,
+			#news_inner {
+				border-top: 4px solid <?php echo $styles[$style][0]; ?>;
+			}
+			.progressbar #progressbar_inside {
+				background: <?php echo $styles[$style][1]; ?>;
+			}
+		</style>
+		
+		<script>
+			// Change here the news interval and the news itself
+			var news_interval =	7; // seconds
+			var news = [
+				"Here you have much place for your news, the news are picked random from your news list and after your setted intervall, the next news is coming.",
+				"This is a loadingscreen for Garry's Mod. - Made by Wolfbyte",
+				"This loadingscreen is fully customizable and easy to use.",
+				"In this loadingscreen are included: 5 designs, 5 background-images and 10 copyright free songs from NCS - Ready to start!",
+				"Have a question? Send me a message on steam: http://steamcommunity.com/id/wolfbyte_eu/",
+				// "YOUR NEWS",
+			];
+			
+			// Functions for news
+			window.onload = function () {
+				fadeNews();
+				setInterval(fadeNews, news_interval*1000);
+			}
+			
+			var i = Math.floor((Math.random() * news.length));
+
+			function fadeNews(){
+				
+				document.getElementById("news_inner").innerHTML = "<span class='animated fadeIn'>"+news[i]+"</span>";
+				
+				i++;
+				
+				if(i == news.length){
+					i = 0;
+				}
+			}
+			
+			// Get serverinformations
+			function GameDetails( servername, serverurl, mapname, maxplayers, steamid, gamemode ) {
+				document.getElementById("servername").innerHTML = "<b>"+servername+"</b>";
+				document.getElementById("mapname").innerHTML = "<b>Map:</b> "+mapname;
+				document.getElementById("maxplayers").innerHTML = "<b>Maxplayers:</b> "+maxplayers;
+				document.getElementById("gamemode").innerHTML = "<b>Gamemode:</b> "+gamemode;
+			}
+			
+			// Functions for progressbar and %
+			function DownloadingFile( fileName ) {
+				document.getElementById("file").innerHTML = fileName;
+			}
+			
+			function SetStatusChanged( status ) {
+				document.getElementById("file").innerHTML = status;
+				
+				if(status == "Sending client info..."){
+					document.getElementById("number").innerHTML = "100%";
+					document.getElementById("progressbar_inside").style.width = "100%";
+				}
+			}
+			
+			var totalDownloads;
+			
+			function SetFilesTotal( total ) {
+				totalDownloads = total;
+			}
+			
+			function SetFilesNeeded( needed ) {
+				var neededDownloads = needed;
+				
+				progressbar = (100 / totalDownloads) * ((totalDownloads - neededDownloads));
+				
+				progressbar = Math.ceil(progressbar);
+				
+				document.getElementById("number").innerHTML = progressbar+"%";
+				document.getElementById("progressbar_inside").style.width = progressbar+"%";
+			}
+		</script>
+  </head>
+  <body>
+		<div class="content animated fadeIn">
+			<div class="header">
+				<img src="<?php echo $logo_path; ?>" height="150px"/>
+			</div> <!-- /.header -->
+			
+			<div class="left">
+			
+				<div class="welcome">
+					<h2>Welcome!</h2>
+				</div> <!-- /.welcome -->
+				
+				<div class="userinformations">
+					<img src="<?php echo $avatar; ?>" width="120px"/>
+					<h2><?php echo $username; ?></h2>
+					<p><?php echo $country; ?></p>
+				</div> <!-- /.userinformations -->
+				
+				<div class="serverinformations">
+					<h2>Serverinformations</h2>
+				</div> <!-- /.serverinformations -->
+				
+				<div id="servername"></div>
+				<div id="gamemode"></div>
+				<div id="mapname"></div>
+				<div id="maxplayers"></div>
+				
+			</div> <!-- /.left -->
+			
+			<div class="center">
+				<div class="serverrules">
+					<h2>Our Rules</h2>
+				</div> <!-- /.serverrules -->
+				<ol>
+					<!-- Change / Add here your server rules -->
+					<li>No RDM!</li>
+					<li>No ghosting!</li>
+					<li>No propkill!</li>
+					<li>No chat spam!</li>
+					<li>No voice spam!</li>
+					<li>No false KOS!</li>
+					<li>You can only kill AFK players in overtime!</li>
+					<li>No gore or porn sprays!</li>
+					<li>No claiming rooms!</li>
+					<li>No camping!</li>
+					<!-- <li>New rule</li> -->
+				</ol>
+			</div> <!-- /.center -->
+			
+			<div class="right">
+				<div class="staff">
+					<h2>Staff</h2>
+				</div> <!-- /.staff -->
+				
+				<div class="staff_inside">
+					<ul>
+						<!-- Add / Change here your server staff members -->
+						<li><b>Owner: </b>You</li>
+						<li><b>Admins: </b>Garry</li>
+						<li><b>Moderator: </b>Gaben</li>
+						<li><b>Supporter: </b>Wolfbyte</li>
+					</ul>
+				</div> <!-- /.staff_inside -->
+				
+				<div class="news">
+					<h2>News</h2>
+				</div> <!-- /.news -->
+				
+				<div id="news_inner"></div>
+				
+			</div> <!-- /.right -->
+			
+			<div class="progressbar">
+				<div id="progressbar_inside"></div>
+			</div> <!-- /.progressbar -->
+			
+			<div class="loadinginformations">
+				<span id="file">Retrieving server info...</span><br>
+				<div id="percent"><span id="number">0%</span> <img src="img/loading.gif" height="25px"/></div>
+			</div> <!-- /.loadinginformations -->
+			
+			<!-- If music is enabled, play the random picked song -->
+			<?php if($music_enabled){echo "<audio src='music/".$music_file.".ogg' type='audio/mp3' autoplay loop></audio>";} ?>
+			
+		</div> <!-- /.content -->
+  </body>
+</html>
